@@ -115,7 +115,7 @@ def main(argv=None):
 		
 		
 		
-#can now cycle of snvals.keys() for each object!!
+#can now cycle of snvals.keys() for each object!! as below
 #need to be able to use class or structured array on the high-z data as well.
 #construct function and minuit call for minimisation.
 

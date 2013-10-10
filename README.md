@@ -18,3 +18,9 @@ Once finished the code will allow you to
 3/10/13 - Use argparse to get optional arguments
 
 3/10/13 - amalgamate_salt2.py organises Salt2 data so I can start writing and testing the main code
+
+10/10/13 - amalgamate_salt2.py is now a stand-alone programme.  This makes the main code much easier to write
+
+10/10/13 - use setattr() to read the output of amalgamate SALT2 into the classes and create the snvals dict with entry per object.
+
+10/10/13 - fixed some argparse weirdness.  I didn't understand why it was doing what it was, but it works fine now.
