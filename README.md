@@ -16,3 +16,5 @@ Once finished the code will allow you to
 ## Progress
 
 3/10/13 - Use argparse to get optional arguments
+
+3/10/13 - amalgamate_salt2.py organises Salt2 data so I can start writing and testing the main code
