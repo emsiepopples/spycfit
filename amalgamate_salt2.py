@@ -1,6 +1,6 @@
 #/usr/bin/python
 """
-Code to amalgamate the standard output of SALT2 into 1 file for analysis in the SPyCoFit tool
+Code to amalgamate the standard output of SALT2 into 1 file for analysis in the SPyCFit tool
 Will assume that the results are stored in a data tree by object and subtraction version and that the results files have the default name
 'result_salt2.dat'
 Output will be 2 files (one for each subtraction method) which can be used to test SPyCoFit.py
@@ -84,7 +84,8 @@ def main(argv=None):
 	
 	
 	for s in sne:
-		locate = os.path.join(args['startdir'], s, args['version'], saltname)
+		locate = os.path.join(args['startdir'], s, saltname)
+		print locate
 		
 		if os.path.isfile(locate):
 	
