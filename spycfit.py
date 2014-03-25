@@ -20,7 +20,7 @@ from IPython import embed
 
 class Supernova(object):
 	
-	def __init__(self, arr):
+	def __init__(self, arr,lcfitter):
 	
 		self.name=arr[0]
 		self.z = float(arr[1])
@@ -29,6 +29,30 @@ class Supernova(object):
 		self.maxdate_err = float(arr[4])
 		self.bmax = float(arr[5])
 		self.bmax_err = float(arr[6])
+		self.type = lcfitter
+		
+		if self.type == 'salt2':
+		
+			self.colour = float(arr[11])
+			self.colour_err = float(arr[12])
+			self.x0 = float(arr[7])
+			self.x0_err = float(arr[8])
+			self.x1 = float(arr[9])
+			self.x1_err = float(arr[10])
+			
+		elif self.type == 'sifto':
+		
+	 		self.fitter = 'sifto'
+	 		self.colour = float('nan')
+	 		self.colour_err = float('nan')
+	 		self.stretch = float('nan')
+	 		self.stretch_err = float('nan')
+			
+		else:
+			
+			raise
+		
+	
 		
 	def integrand(self, omega_m, omega_l):
 	
@@ -38,43 +62,7 @@ class Supernova(object):
 	__doc__ = "Supernova Class"
 	
 
-class Salt2SN(Supernova):
-	
-	#initialise object as empty
-	
-	def __init__(self, arr):
-		
-		super(Supernova, self).__init__(arr)
-		
-		self.fitter = 'salt2'
-		self.colour = float(arr[11])
-		self.colour_err = float(arr[12])
-		self.x0 = float(arr[7])
-		self.x0_err = float(arr[8])
-		self.x1 = float(arr[9])
-		self.x1_err = float(arr[10]) 
 
-	
-	__doc__ = "SALT2 subclass of Supernova Class"
-	
-
-
-class SiftoSN(Supernova):
-	
-	def __init__(self,arr):
-		
-		super(Supernova, self).__init__(arr)
-	
-		self.fitter = 'sifto'
-		self.colour = float('nan')
-		self.colour_err = float('nan')
-		self.stretch = float('nan')
-		self.stretch_err = float('nan')
-
-	#will need to add array details for the SifTO input files
-	
-	__doc__ = "SiFTO subclass of Supernova Class"
-	
 #class CosmoChi2:
 #	
 #	def __init__(self, lc_bmag, lc_bmag_err, lc_width, lc_width_err, lc_colour, lc_colour_err, alpha, beta, omega_m, omega_l, sigma_int):
@@ -147,33 +135,13 @@ def main():
 	
 	
 	f = open(args['filename'], 'r')
-	col_names = f.readline().split()
 	lines = f.readlines()
 	lines = [x for x in lines if not x.startswith('#')]  #removes comments
 	f.close()
-	snvals = {}
+
+	linebyline = [ll.split() for ll in lines] 
 	
-	
-	for ll in lines:
-		
-		dat = ll.split()
-		
-		if args['style'] == 'salt2':
-			snvals[dat[0]] = Salt2SN()
-		elif args['style'] == 'sifto':
-			snvals[dat[0]] = SiftoSN()
-		elif args['style'] == 'snoopy':
-			snvals[dat[0]] = SnoopySN()
-			
-		
-			
-		for idx,col in enumerate(col_names): 
-			
-			if idx == 0:  #first column must be name
-				setattr(snvals[dat[0]], col, dat[idx])
-			else:
-				setattr(snvals[dat[0]], col, float(dat[idx]))
-	
+	sne = [Supernova(lll, args['style']) for lll in linebyline]
 	
 	#put parameters into class for lmfit
 				
@@ -246,6 +214,8 @@ def main():
 	params.add('scriptm', vary=True, value = 1, min=-70, max = 70)
 	
 	#Put the data into a dictionary to make it easier
+	
+	pdb.set_trace()
 	
 	data = dict.fromkeys(['bmag', 'bmag_err', 'zed', 'zed_err', 'lc_width', 'lc_width_err', 'lc_colour', 'lc_colour_err'])
 	
