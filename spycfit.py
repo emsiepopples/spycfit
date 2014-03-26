@@ -42,7 +42,6 @@ class Supernova(object):
 			
 		elif self.type == 'sifto':
 		
-	 		self.fitter = 'sifto'
 	 		self.colour = float('nan')
 	 		self.colour_err = float('nan')
 	 		self.stretch = float('nan')
@@ -54,10 +53,7 @@ class Supernova(object):
 		
 	
 		
-	def integrand(self, omega_m, omega_l):
-	
-		return  1.0/(np.sqrt((1.+self.z)**2 * (1+ omega_m) - z*(2.+self.z)*omega_l))
-		
+
 	
 	__doc__ = "Supernova Class"
 	
@@ -211,7 +207,7 @@ def main():
 	
 	
 	params.add('int_disp', vary = False, value = args['sigma'])
-	params.add('scriptm', vary=True, value = 1, min=-70, max = 70)
+	 
 	
 	#Put the data into a dictionary to make it easier
 	
