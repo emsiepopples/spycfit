@@ -13,7 +13,7 @@ import sys
 import os
 import argparse
 import __future__
-from lmfit import minimize, Parameters, report_fit
+from lmfit import minimize, Parameters, report_errors
 import pdb
 from scipy import integrate
 from IPython import embed
@@ -58,58 +58,85 @@ class Supernova(object):
 	__doc__ = "Supernova Class"
 	
 
+def cosmochisqu(params, snlist):
+    #unpack params here, alpha beta etc
+    alpha = params['alpha'].value
+    beta = params['beta'].value
+    omega_m = params['omega_m'].value
+    omega_l = params['omega_l'].value
+    int_disp = params['int_disp'].value
+    scriptm = params['scriptm'].value
+    
+    #unpack parameters as we did earlier
+    redshift = np.array([s.z for s in snlist])
+    redshift_err = np.array([s.z_err for s in snlist])
+    bmag = np.array([s.bmax for s in snlist])
+    bmag_err = np.array([s.bmax_err for s in snlist])
+    
+    try:
+        snlist[0].type == 'salt2'
+        lc_width = np.array([s.x1 for s in snlist])
+        lc_width_err = np.array([s.x1_err for s in snlist])
+        lc_colour = np.array([s.colour for s in snlist])
+        lc_colour_err = np.array([s.colour_err for s in snlist])
+        
+    except:
+        snlist[0].type == 'sifto'
+        lc_width = np.array([s.stretch - 1.0  for s in snlist])
+        lc_width_err = np.array([s.stretch_err for s in snlist])
+        lc_colour = np.array([s.colour for s in snlist])
+        lc_colour_err = np.array([s.colour_err for s in snlist])
+        
+    #write this as a separate function in case I want to play with it later
+    correction, correction_err = corr_two_params(alpha, beta, [lc_width, lc_width_err], [lc_colour, lc_colour_err])
+    #ok this seems to return no errors to here so I think we're ok
+    
+    model = 5.0 * np.log10(script_lumdist(omega_m, omega_l, redshift))
+    
+    data = bmag + correction - scriptm
+    
+    err = np.sqrt(bmag_err**2 + correction_err**2)
+    
+    print (np.sum((model - data)**2) / np.sum(int_disp**2 +err**2))/len(data)
+    
+    return (np.sum((model - data)**2) / np.sum(int_disp**2 +err**2))/len(data)
+	
 
-#class CosmoChi2:
-#	
-#	def __init__(self, lc_bmag, lc_bmag_err, lc_width, lc_width_err, lc_colour, lc_colour_err, alpha, beta, omega_m, omega_l, sigma_int):
-#		
-#		self.lc_bmag = lc_bmag
-#		self.lc_bmag_err = lc_bmag_err
-#		self.lc_width = lc_width
-#		self.lc_width_err = lc_width_err
-#		self.lc_colour = lc_colour
-#		self.lc_colour_err = lc_colour_err
-#		self.alpha = alpha
-#		self.beta = beta
-#		self.omega_m = omega_m
-#		self.omega_l = omega_l
-#		self.sigma_int = sigma_int
-#		
-#	def __call__(self, scriptm):
-#		
-#		data = 
-#
+def corr_two_params(aa, bb, width, col):
+    correction = aa*width[0] - bb * col[0]
+    correction_err = np.sqrt(aa**2 * width[1]**2 + bb**2 * col[1]**2)
+    return [correction, correction_err]
+	
+def integralbit(zz, wm, wl):
+    
+    return ((1+zz)**2 * (1+wm*zz) - zz*(2+zz)*wl)**-0.5
 
+def script_lumdist(wm, wl, zed):
+    
+    if np.abs(1.0 - (wm + wl)) <= 0.001:
+        
+        #print 'Flat universe'
+        
+        curve = 1.0
+        
+        const = 299792458. * zed/np.sqrt(curve)
+    
+        cosmobit = [np.sqrt(curve) * integrate.quad(integralbit, 0, zed, args=(0.2, 0.8,))[0] for zed in test_zed]
+        return const * cosmobit
+        
+    elif wm+wl > 1:
+        
+        print 'Positive curvature'
+        curve = 1.0 - wm - wl
+        return
+    else:
+        
+        print 'Negative curvature'
+        curve = 1.0 - wm - wl
+        return
+		
+	
 
-	
-def cosmochi2(parameters, zed, bmag=None, bmag_err=None, lc_width=None, lc_width_err=None, lc_colour=None, lc_colour_err=None):
-	
-	alpha = parameters['alpha'].value
-	beta = parameters['beta'].value
-	omega_m = parameters['omega_m'].value
-	parameters['omega_m'].vary = False
-	omega_l = parameters['omega_l'].value
-	parameters['omega_l'].vary = False
-	scriptm = parameters['scriptm'].value
-	int_disp = parameters['int_disp'].value
-	
-	print omega_m, omega_l
-	#pdb.set_trace()
-	#measured = data['bmag'] - scriptm + alpha*data['lc_width'] - beta*['lc_colour']
-	#measured = bmag - scriptm + alpha*lc_width- beta*lc_colour
-	
-	
-	
-	#measured_err = np.sqrt(data['bmag_err']**2  + alpha**2*data['lc_width_err']**2  + beta**2 * data['lc_colour_err'] **2)
-	measured_err = np.sqrt(bmag_err**2  + alpha**2*lc_width_err**2  + beta**2 * lc_colour_err **2)
-
-	model = 5.0 * np.log10(np.array([integrate.quad(integrand, 0, zz, args = (omega_m, omega_l))[0] for zz in zed])*1e5)	
-	
-		#chi2 = sum((data-model)**2./(data_err**2 + int_disp**2))
-	chi2 = sum((bmag-(model - alpha*lc_width + beta*lc_colour + scriptm)**2.)/(measured_err**2+ int_disp**2))
-	
-	return chi2/len(zed)
-	
 
 def main():
 
@@ -153,7 +180,7 @@ def main():
 		
 		print 'Alpha free'
 		
-		params.add('alpha', vary=True, value = 1.0, min=-1, max = 10)
+		params.add('alpha', vary=True, value = 1.0, min=-1., max = 10.)
 		
 	try: 
 	
@@ -211,54 +238,9 @@ def main():
 	
 	#Put the data into a dictionary to make it easier
 	
-	pdb.set_trace()
-	
-	data = dict.fromkeys(['bmag', 'bmag_err', 'zed', 'zed_err', 'lc_width', 'lc_width_err', 'lc_colour', 'lc_colour_err'])
-	
-	data['bmag'] = np.array([snvals[kk].bmax for kk in snvals.keys()])
-	data['bmag_err'] = np.array([snvals[kk].bmax_err for kk in snvals.keys()])
-	
-	if args['style'] == 'salt2':
-		data['lc_width'] = np.array([snvals[kk].x1 for kk in snvals.keys()])
-		data['lc_width_err'] = np.array([snvals[kk].x1_err for kk in snvals.keys()])
-		
-	elif args['style'] =='sifto':
-		data['lc_width'] =np.array([snvals[kk].stretch - 1 for kk in snvals.keys()])
-		data['lc_width_err'] = np.array([snvals[kk].stretch_err for kk in snvals.keys()])
-		
-	else:
-		print 'SNOOPY STYLE - not yet implemented'
-		sys.exit()
-		
-	data['lc_colour'] = np.array([snvals[kk].colour for kk in snvals.keys()])
-	data['lc_colour_err'] = np.array([snvals[kk].colour_err for kk in snvals.keys()])
-	
-	data['zed'] = np.array([snvals[kk].z for kk in snvals.keys()])
-	data['zed_err'] = np.array([snvals[kk].z_err for kk in snvals.keys()])
-	
-	#pdb.set_trace()
-	
-	
-	
-	#result = minimize(cosmochi2, params, args = (data['bmag'], data['bmag_err'], data['lc_width'], data['lc_width_err'], data['lc_colour'], data['lc_colour_err'], data['zed']))
-	
-	
-	bmag = data['bmag']
-	bmag_err = data['bmag_err']
-	lc_width = data['lc_width']
-	lc_width_err = data['lc_width_err']
-	lc_colour = data['lc_colour']
-	lc_colour_err = data['lc_colour_err']
-	zed = data['zed']
-	
-	
-	#result = minimize(cosmochi2, params, args = (bmag, bmag_err, lc_width, lc_width_err, lc_colour, lc_colour_err, zed))
-	
-	result = minimize(cosmochi2, params, args = (zed,), kws = {'bmag':bmag, 'bmag_err':bmag_err, 'lc_width':lc_width, 'lc_width_err':lc_width_err, 'lc_colour':lc_colour, 'lc_colour_err':lc_colour_err}, method='nelder')
-	
-	
-	report_fit(params)
-	
+	result = minimize (cosmochisqu, params, args=(sne,), method='nelder')
+	cosmochisqu(params, sne)
+	report_errors(params)
 		
 	
 		
