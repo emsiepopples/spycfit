@@ -97,9 +97,10 @@ def cosmochisqu(params, snlist):
     
     err = np.sqrt(bmag_err**2 + correction_err**2)
     
-    print (np.sum((model - data)**2) / np.sum(int_disp**2 +err**2))/len(data)
-    
-    return (np.sum((model - data)**2) / np.sum(int_disp**2 +err**2))/len(data)
+    chisqu =  (np.sum((model - data)**2) / np.sum(int_disp**2 +err**2))/len(data)
+    print chisqu
+	
+    return chisqu
 	
 
 def corr_two_params(aa, bb, width, col):
@@ -119,21 +120,29 @@ def script_lumdist(wm, wl, zed):
         
         curve = 1.0
         
-        const = 299792458. * zed/np.sqrt(curve)
+        const = 299792458. * (1+zed)/np.sqrt(np.abs(curve))
     
-        cosmobit = [np.sqrt(curve) * integrate.quad(integralbit, 0, zed, args=(0.2, 0.8,))[0] for zed in test_zed]
+        cosmobit = [np.sqrt(curve) * integrate.quad(integralbit, 0, zed, args=(wm, wl,))[0] for zed in test_zed]
         return const * cosmobit
         
-    elif wm+wl > 1:
+    elif wm+wl > 1.:
         
         print 'Positive curvature'
         curve = 1.0 - wm - wl
-        return
+		const = 299792458. * (1+zed)/np.sqrt(np.abs(curve))
+		
+		cosmobit = np.sin([np.sqrt(np.abs(curve)) * integrate.quad(integralbit, 0, zed, args=(wm,wl,))[0] for zed in test_zed])
+        
+		return const*cosmobit
     else:
         
         print 'Negative curvature'
         curve = 1.0 - wm - wl
-        return
+		const = 299792458. * (1+zed)/np.sqrt(np.abs(curve))
+		
+		cosmobit = np.sinh([np.sqrt(np.abs(curve)) * integrate.quad(integralbit, 0, zed, args=(wm,wl,))[0] for zed in test_zed])
+		
+        return const* cosmobit
 		
 	
 
