@@ -60,6 +60,7 @@ class Supernova(object):
 
 def cosmochisqu(params, snlist):
     #unpack params here, alpha beta etc
+
     alpha = params['alpha'].value
     beta = params['beta'].value
     omega_m = params['omega_m'].value
@@ -100,7 +101,7 @@ def cosmochisqu(params, snlist):
     chisqu =  (np.sum((model - data)**2) / np.sum(int_disp**2 +err**2))/len(data)
     print chisqu
 	
-    return chisqu
+    return (model - data)/np.sqrt((int_disp**2 + err**2))
 	
 
 def corr_two_params(aa, bb, width, col):
@@ -113,45 +114,41 @@ def integralbit(zz, wm, wl):
     return ((1+zz)**2 * (1+wm*zz) - zz*(2+zz)*wl)**-0.5
 
 def script_lumdist(wm, wl, zed):
-    
-    if np.abs(1.0 - (wm + wl)) <= 0.001:
-        
-        #print 'Flat universe'
-        
-        curve = 1.0
-        
-        const = 299792458. * (1+zed)/np.sqrt(np.abs(curve))
-    
-        cosmobit = [np.sqrt(curve) * integrate.quad(integralbit, 0, zed, args=(wm, wl,))[0] for zed in test_zed]
-        return const * cosmobit
-        
-    elif wm+wl > 1.:
-        
-        print 'Positive curvature'
-        curve = 1.0 - wm - wl
+
+	if np.abs(1.0 - (wm +wl)) <=0.001:
+
+		curve = 1.0
+
 		const = 299792458. * (1+zed)/np.sqrt(np.abs(curve))
-		
-		cosmobit = np.sin([np.sqrt(np.abs(curve)) * integrate.quad(integralbit, 0, zed, args=(wm,wl,))[0] for zed in test_zed])
-        
-		return const*cosmobit
-    else:
-        
-        print 'Negative curvature'
-        curve = 1.0 - wm - wl
+		cosmobit = [np.sqrt(curve) * integrate.quad(integralbit, 0, zz, args=(wm, wl,))[0] for zz in zed]
+		return const * cosmobit
+
+	elif wm+wl > 1.:
+
+		print 'Positive curvature'
+		curve = 1.0 - wm - wl
 		const = 299792458. * (1+zed)/np.sqrt(np.abs(curve))
-		
-		cosmobit = np.sinh([np.sqrt(np.abs(curve)) * integrate.quad(integralbit, 0, zed, args=(wm,wl,))[0] for zed in test_zed])
-		
-        return const* cosmobit
-		
-	
+		cosmobit = np.sin([np.sqrt(np.abs(curve)) * integrate.quad(integralbit, 0, zz, args=(wm,wl,))[0] for zz in zed])
+		return const * cosmobit
+
+	else:
+
+		print 'Negative curvature'
+		curve = 1.0 - wm - wl
+		const = 299792458. * (1+zed)/np.sqrt(np.abs(curve))
+		cosmobit = np.sinh([np.sqrt(np.abs(curve)) * integrate.quad(integralbit, 0, zz, args=(wm,wl,))[0] for zz in zed])
+		return const * cosmobit
+    
+ 
+   
+
 
 
 def main():
 
 	parser = argparse.ArgumentParser(description='Simply Python Cosmology Fitter')
 	parser.add_argument("filename", type=str, help="Input file of SN data. Name in first column")
-	parser.add_argument("style", type=str, choices=['salt2','sifto', 'snoopy' ],help="Style of input data")
+	parser.add_argument("style", type=str, choices=['salt2','sifto', 'snoopy' ],help="Style of input data. NB Snoopy not implemented yet!")
 	parser.add_argument("sigma", type=float, help='Instrinsic dispersion')
 	parser.add_argument("-a", "--alpha", type=float, help='Fix coeff for LC width')
 	parser.add_argument("-b", "--beta", type=float, help='Fix coeff for LC colour')
@@ -163,7 +160,7 @@ def main():
 	
 	args = vars(parser.parse_args())
 	
-	
+	print args
 	
 	
 	f = open(args['filename'], 'r')
@@ -176,90 +173,93 @@ def main():
 	sne = [Supernova(lll, args['style']) for lll in linebyline]
 	
 	#put parameters into class for lmfit
+	#this whole section just organises everything from argparse
 				
 	params = Parameters()
 	
-	try: 
-		
-		args['alpha']
+	if (args['alpha'] != None):
 		
 		params.add('alpha', value = args['alpha'], vary=False)
 		
-	except KeyError:
+	else:
 		
 		print 'Alpha free'
 		
 		params.add('alpha', vary=True, value = 1.0, min=-1., max = 10.)
 		
-	try: 
-	
-		args['beta']
+	if (args['beta']!= None):
 	
 		params.add('beta', value = args['beta'], vary=False)
 	
-	except KeyError:
+	else:
 	
 		print 'Beta free'
 	
 		params.add('beta', vary=True, value = 1.0, min=-1, max = 10)
 		
-	try: 
-	
-		args['omega_m']
+	if (args['omega_m']!= None):
 	
 		params.add('omega_m', value = args['omega_m'], vary=False)
 		
-		try: 
-			args['flat']		
+		if (args['flat'] == True):
+
 			params.add('omega_l', value = 1.0 - args['omega_m'], vary = False, min=0)
 	
-		except KeyError:
+		else:
 			print 'Not assuming flat universe'
 	
-	except KeyError:
+	else:
 	
 		print 'Omega_m free'
 	
 		params.add('omega_m', vary=True, value = 0.25, min=0, max = 5)
 		
-	try: 
-	
-		args['omega_l']
+	if (args['omega_l']!= None):
 	
 		params.add('omega_l', value = args['omega_l'], vary=False)
 	
-		try: 
-			args['flat']		
+		if (args['flat']	!= None	):
+
 			params.add('omega_m', value = 1.0 - args['omega_l'], vary = False)
 	
-		except KeyError:
+		else:
+
 			print 'Not assuming flat universe'
 	
-	except KeyError:
+	else:
 	
 		print 'Omega_l free'
 	
 		params.add('omega_l', vary=True, value = 0.7, min=0, max = 5)
 	
 	
+	#add these two parameters which are easier
+
 	params.add('int_disp', vary = False, value = args['sigma'])
+	params.add('scriptm', vary = True, value = 10.0)
 	 
-	
-	#Put the data into a dictionary to make it easier
-	
-	result = minimize (cosmochisqu, params, args=(sne,), method='nelder')
+
+	result = minimize (cosmochisqu, params, args=(sne,))
 	cosmochisqu(params, sne)
 	report_errors(params)
+
+
+	test_z = np.arange(0.001, 0.15, 0.001)
+	model = 5.0 * np.log10(script_lumdist(params['omega_m'].value, params['omega_l'].value, test_z))
+	data = np.array([s.bmax for s in sne]) + params['alpha'].value * np.array([s.x1 for s in sne]) - params['beta'].value * np.array([s.colour for s in sne]) - params['scriptm'].value
+
+
+	# units of H0 is wrong. i have no idea what they should be
+	#january = np.array([s.bmax for s in sne]) + 0.1 * np.array([s.x1 for s in sne]) - 2.7 * np.array([s.colour for s in sne]) + (-19.08  -5.0 * np.log10(70.*1e3 / 3.0857e22) + 25)
+
+	fig = plt.figure()
+	plt.plot(test_z, model, 'k-', label='Best fit')
+	plt.plot(np.array([s.z for s in sne]), data, 'bo', label = 'Data')
+	#plt.plot(np.array([s.z for s in sne]), january, 'ro', label = 'Jan')
+	plt.legend()
+	plt.show()
 		
-	
-		
-"""
-def chi2(some arguments):
-	chi2 = sum((data-model)**2./(sigma**2 + int_disp**2))
-	
-def import_highz():
-	work out some way to import the high-z data to add to the minimisation	
-"""
+
 
 if __name__ == "__main__":
 	main()
