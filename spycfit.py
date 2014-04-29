@@ -50,9 +50,19 @@ class Supernova(object):
 		else:
 			
 			raise
+
+	def corrected_mag(self, params):
+
+		"""Returns the corrected magnitude and error based on the values in 
+		params ie after the fit"""
+
+
+		corr_mag = self.bmax + params['alpha'].value * self.x1 - params['beta'].value * self.colour - params['scriptm'].value
+		corr_mag_err = np.sqrt(self.bmax_err**2 +params['alpha'].value**2 * self.x1_err**2 + params['alpha'].stderr**2 * self.x1\
+		+ params['beta'].value**2 * self.colour_err**2 + params['beta'].stderr**2 * self.colour**2 + params['scriptm'].stderr**2)
+
 		
-	
-		
+		return corr_mag, corr_mag_err
 
 	
 	__doc__ = "Supernova Class"
@@ -60,6 +70,8 @@ class Supernova(object):
 
 def cosmochisqu(params, snlist):
     #unpack params here, alpha beta etc
+
+    """Function required for the lmfit minimisation of the best fit cosmology"""
 
     alpha = params['alpha'].value
     beta = params['beta'].value
@@ -99,23 +111,33 @@ def cosmochisqu(params, snlist):
     err = np.sqrt(bmag_err**2 + correction_err**2)
     
     chisqu =  (np.sum((model - data)**2) / np.sum(int_disp**2 +err**2))/len(data)
-    print chisqu
+    print chisqu, alpha, beta, scriptm
 	
     return (model - data)/np.sqrt((int_disp**2 + err**2))
 	
 
 def corr_two_params(aa, bb, width, col):
-    correction = aa*width[0] - bb * col[0]
-    correction_err = np.sqrt(aa**2 * width[1]**2 + bb**2 * col[1]**2)
-    return [correction, correction_err]
+
+	"""Calculates the alpha*width - beta*colour correction.
+	Written as a separate function in case I ever want to 
+	go crazy and do something totally different"""
+
+	correction = aa*width[0] - bb * col[0]
+	correction_err = np.sqrt(aa**2 * width[1]**2 + bb**2 * col[1]**2)
+	return [correction, correction_err]
 	
 def integralbit(zz, wm, wl):
-    
-    return ((1+zz)**2 * (1+wm*zz) - zz*(2+zz)*wl)**-0.5
+
+	return ((1+zz)**2 * (1+wm*zz) - zz*(2+zz)*wl)**-0.5
 
 def script_lumdist(wm, wl, zed):
 
+	"""Function which calculates the Hubble constant-less luminosity
+	distance.  See the README for what this looks like"""
+
 	zed = np.array(zed)
+
+	#flat universe case
 
 	if np.abs(1.0 - (wm +wl)) <=0.001:
 
@@ -145,11 +167,14 @@ def script_lumdist(wm, wl, zed):
  
 def three_sigma_clip(snzed, vals, errs, params):
 
+	"""Function to calculate which objects are >=3sigma from the
+	model prediction"""
+
 	dist_mod_zed = 5.0 * np.log10(script_lumdist(params['omega_m'].value, params['omega_l'].value, snzed))
 
 	diff = np.abs(vals - dist_mod_zed)/errs  #difference in sigmas
 
-	return np.where(diff >= 3.0)[0]
+	return diff
 
 
 
@@ -183,8 +208,26 @@ def main():
 	
 	sne = [Supernova(lll, args['style']) for lll in linebyline]
 	
-	#put parameters into class for lmfit
-	#this whole section just organises everything from argparse
+	#if I were to implement the high-z option here is where the data would need to be
+	#read in and concatenated to the list of class instances we've created.
+
+	#not tested
+	# if args['highz'] == True:
+
+	# 	f = open('somefile of high-z data', 'r')
+	# 	lines = f.readlines()
+	# 	lines = [x for x in lines if not x.startswith('#')]
+	# 	f.close()
+	# 	linebyline = [ll.split() for ll in lines] 
+
+	# 	highz = [Supernova(lll, args['style']) for lll in linebyline]
+
+	# 	sne = [sne, highz]
+
+
+	
+
+	#this whole section just organises everything from argparse for lmfit
 				
 	params = Parameters()
 	
@@ -248,31 +291,30 @@ def main():
 
 	params.add('int_disp', vary = False, value = args['sigma'])
 	params.add('scriptm', vary = True, value = 10.0)
-	 
+
+
+	#do the chisqu minimisation using the least squ fitter
 
 	result = minimize (cosmochisqu, params, args=(sne,))
 	cosmochisqu(params, sne)
 	report_errors(params)
 
+	#now do some stuff to make a plot
 
 	test_z = np.arange(0.001, 0.15, 0.001)
 	model = 5.0 * np.log10(script_lumdist(params['omega_m'].value, params['omega_l'].value, test_z))
-	data = np.array([s.bmax for s in sne]) + params['alpha'].value * np.array([s.x1 for s in sne]) - params['beta'].value * np.array([s.colour for s in sne]) - params['scriptm'].value
-
-	errors = np.sqrt(np.array([s.bmax_err for s in sne])**2 +params['alpha'].value**2 * np.array([s.x1_err for s in sne])**2 \
-		+ params['alpha'].stderr**2 * np.array([s.x1 for s in sne]) + params['beta'].value**2 * np.array([s.colour_err for s in sne])**2\
-		+ params['beta'].stderr**2 * np.array([s.colour for s in sne])**2 + params['scriptm'].stderr**2)
-
+	data = np.array([s.corrected_mag(params)[0] for s in sne])
+	errors = np.array([s.corrected_mag(params)[1] for s in sne])
 	
-
-	# units of H0 is wrong. i have no idea what they should be
-	#january = np.array([s.bmax for s in sne]) + 0.1 * np.array([s.x1 for s in sne]) - 2.7 * np.array([s.colour for s in sne]) + (-19.08  -5.0 * np.log10(70.*1e3 / 3.0857e22) + 25)
+	cosmo_label = r'$(\Omega_{\Lambda},\Omega_M) = $' + '({0},{1})'.format(params['omega_l'].value, params['omega_m'].value)
+	data_label = 'Data (n = {0})'.format(int(len(data)))
 
 	fig = plt.figure()
-	plt.plot(test_z, model, 'k-', label='Best fit')
-	#plt.plot(np.array([s.z for s in sne]), data, 'bo', label = 'Data')
-	plt.errorbar(np.array([s.z for s in sne]), data, yerr = errors, ecolor='b', fmt='o', mfc='b', label = 'Data')
-	#plt.plot(np.array([s.z for s in sne]), january, 'ro', label = 'Jan')
+	plt.plot(test_z, model, 'k-', label=cosmo_label)
+	plt.errorbar(np.array([s.z for s in sne]), data, yerr = errors, ecolor='b', fmt='o', mfc='b', label = data_label)
+	plt.ylim([33, 40])
+	plt.xlabel('Redshift')
+	plt.ylabel('Distance Modulus (mags)')
 	plt.legend()
 	plt.show()
 		
@@ -280,9 +322,11 @@ def main():
 
 	print 'HERE ARE THE 3SIGMA OUTLIERS'
 
-	clip = three_sigma_clip([s.z for s in sne], data, errors, params)
+	residual_sigma = three_sigma_clip([s.z for s in sne], data, errors, params)
 
-	for cc in clip: print sne[cc].name
+	clip = np.where(residual_sigma >= 3.0)[0]
+
+	for cc in clip: print sne[cc].name, residual_sigma[cc]
 
 
 
