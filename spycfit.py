@@ -115,6 +115,8 @@ def integralbit(zz, wm, wl):
 
 def script_lumdist(wm, wl, zed):
 
+	zed = np.array(zed)
+
 	if np.abs(1.0 - (wm +wl)) <=0.001:
 
 		curve = 1.0
@@ -138,9 +140,18 @@ def script_lumdist(wm, wl, zed):
 		const = 299792458. * (1+zed)/np.sqrt(np.abs(curve))
 		cosmobit = np.sinh([np.sqrt(np.abs(curve)) * integrate.quad(integralbit, 0, zz, args=(wm,wl,))[0] for zz in zed])
 		return const * cosmobit
+
     
  
-   
+def three_sigma_clip(snzed, vals, errs, params):
+
+	dist_mod_zed = 5.0 * np.log10(script_lumdist(params['omega_m'].value, params['omega_l'].value, snzed))
+
+	diff = np.abs(vals - dist_mod_zed)/errs  #difference in sigmas
+
+	return np.where(diff >= 3.0)[0]
+
+
 
 
 
@@ -248,17 +259,31 @@ def main():
 	model = 5.0 * np.log10(script_lumdist(params['omega_m'].value, params['omega_l'].value, test_z))
 	data = np.array([s.bmax for s in sne]) + params['alpha'].value * np.array([s.x1 for s in sne]) - params['beta'].value * np.array([s.colour for s in sne]) - params['scriptm'].value
 
+	errors = np.sqrt(np.array([s.bmax_err for s in sne])**2 +params['alpha'].value**2 * np.array([s.x1_err for s in sne])**2 \
+		+ params['alpha'].stderr**2 * np.array([s.x1 for s in sne]) + params['beta'].value**2 * np.array([s.colour_err for s in sne])**2\
+		+ params['beta'].stderr**2 * np.array([s.colour for s in sne])**2 + params['scriptm'].stderr**2)
+
+	
 
 	# units of H0 is wrong. i have no idea what they should be
 	#january = np.array([s.bmax for s in sne]) + 0.1 * np.array([s.x1 for s in sne]) - 2.7 * np.array([s.colour for s in sne]) + (-19.08  -5.0 * np.log10(70.*1e3 / 3.0857e22) + 25)
 
 	fig = plt.figure()
 	plt.plot(test_z, model, 'k-', label='Best fit')
-	plt.plot(np.array([s.z for s in sne]), data, 'bo', label = 'Data')
+	#plt.plot(np.array([s.z for s in sne]), data, 'bo', label = 'Data')
+	plt.errorbar(np.array([s.z for s in sne]), data, yerr = errors, ecolor='b', fmt='o', mfc='b', label = 'Data')
 	#plt.plot(np.array([s.z for s in sne]), january, 'ro', label = 'Jan')
 	plt.legend()
 	plt.show()
 		
+	#need to do a 3sigma clipping comparison here
+
+	print 'HERE ARE THE 3SIGMA OUTLIERS'
+
+	clip = three_sigma_clip([s.z for s in sne], data, errors, params)
+
+	for cc in clip: print sne[cc].name
+
 
 
 if __name__ == "__main__":
