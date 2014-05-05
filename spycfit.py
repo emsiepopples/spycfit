@@ -1,10 +1,9 @@
 #/usr/bin/python
 
-"""
-SPyCoFit
-Simple Python Cosmology Fitter written by Emma Walker
-
-"""
+"""SPyCFIT: Simple Python Cosmology Fitter
+Designed for CSP/LCOGT supernovae observations as 
+part of the La Silla-QUEST.  See the README for more
+information and examples etc."""
 
 
 import numpy as np
@@ -21,7 +20,7 @@ from IPython import embed
 class Supernova(object):
 	
 	def __init__(self, arr,lcfitter):
-	
+
 		self.name=arr[0]
 		self.z = float(arr[1])
 		self.z_err = float(arr[2])
@@ -110,10 +109,10 @@ def cosmochisqu(params, snlist):
     
     err = np.sqrt(bmag_err**2 + correction_err**2)
     
-    chisqu =  (np.sum((model - data)**2) / np.sum(int_disp**2 +err**2))/len(data)
-    print chisqu, alpha, beta, scriptm
+    chisqu =  (np.sum((model - data)**2) / np.sum(int_disp**2 +err**2 _ redshift_err**2))/len(data)
+    print chisqu, np.sum((model - data))/np.sum(np.sqrt((int_disp**2 + err**2+redshift_err**2)))
 	
-    return (model - data)/np.sqrt((int_disp**2 + err**2))
+    return (model - data)/np.sqrt((int_disp**2 + err**2 + redshift_err**2))
 	
 
 def corr_two_params(aa, bb, width, col):
@@ -149,7 +148,7 @@ def script_lumdist(wm, wl, zed):
 
 	elif wm+wl > 1.:
 
-		print 'Positive curvature'
+		#print 'Positive curvature'
 		curve = 1.0 - wm - wl
 		const = 299792458. * (1+zed)/np.sqrt(np.abs(curve))
 		cosmobit = np.sin([np.sqrt(np.abs(curve)) * integrate.quad(integralbit, 0, zz, args=(wm,wl,))[0] for zz in zed])
@@ -157,13 +156,18 @@ def script_lumdist(wm, wl, zed):
 
 	else:
 
-		print 'Negative curvature'
+		#print 'Negative curvature'
 		curve = 1.0 - wm - wl
 		const = 299792458. * (1+zed)/np.sqrt(np.abs(curve))
 		cosmobit = np.sinh([np.sqrt(np.abs(curve)) * integrate.quad(integralbit, 0, zz, args=(wm,wl,))[0] for zz in zed])
 		return const * cosmobit
 
-    
+def rms(snzed, vals, errs, params):  
+
+	dist_mod_zed = 5.0 * np.log10(script_lumdist(params['omega_m'].value, params['omega_l'].value, snzed))
+	rms = np.sqrt(np.sum((dist_mod_zed-vals)**2)/len(vals))
+	return rms
+
  
 def three_sigma_clip(snzed, vals, errs, params):
 
@@ -185,7 +189,7 @@ def main():
 	parser = argparse.ArgumentParser(description='Simply Python Cosmology Fitter')
 	parser.add_argument("filename", type=str, help="Input file of SN data. Name in first column")
 	parser.add_argument("style", type=str, choices=['salt2','sifto', 'snoopy' ],help="Style of input data. NB Snoopy not implemented yet!")
-	parser.add_argument("sigma", type=float, help='Instrinsic dispersion')
+	parser.add_argument("-s", "--sigma", type=float, help='Instrinsic dispersion')
 	parser.add_argument("-a", "--alpha", type=float, help='Fix coeff for LC width')
 	parser.add_argument("-b", "--beta", type=float, help='Fix coeff for LC colour')
 	parser.add_argument("-m", "--omega_m", type=float, help='Fix value of Omega_matter')
@@ -239,7 +243,7 @@ def main():
 		
 		print 'Alpha free'
 		
-		params.add('alpha', vary=True, value = 1.0, min=-1., max = 10.)
+		params.add('alpha', vary=True, value = 1.0, min=0., max = 10.)
 		
 	if (args['beta']!= None):
 	
@@ -249,7 +253,7 @@ def main():
 	
 		print 'Beta free'
 	
-		params.add('beta', vary=True, value = 1.0, min=-1, max = 10)
+		params.add('beta', vary=True, value = 1.0, min=0, max = 10)
 		
 	if (args['omega_m']!= None):
 	
@@ -285,17 +289,30 @@ def main():
 		print 'Omega_l free'
 	
 		params.add('omega_l', vary=True, value = 0.7, min=0, max = 5)
-	
-	
-	#add these two parameters which are easier
 
-	params.add('int_disp', vary = False, value = args['sigma'])
+	if (args['sigma']!=None):
+
+		params.add('int_disp', value = args['sigma'], vary = False, min=0., max = 1.)
+
+	else:
+
+		print 'Instrinsic Dispersion Free'
+		params.add('int_disp', value = args['sigma'],vary = True, min=0., max = 1.)
+
+	if ((args['flat'] == True) and ((args['omega_m']==None) or (args['omega_l']==None)) ):
+
+		print 'FLAT'
+
+		params.add('omega_m', vary = True, value = 0.3, min=0, max = 1.)
+		params.add('omega_l', vary = True, expr = '1.0 - omega_m')
+	
+
 	params.add('scriptm', vary = True, value = 10.0)
 
-
+	#pdb.set_trace()
 	#do the chisqu minimisation using the least squ fitter
 
-	result = minimize (cosmochisqu, params, args=(sne,))
+	result = minimize (cosmochisqu, params, args=(sne,), xtol = 0.001)
 	cosmochisqu(params, sne)
 	report_errors(params)
 
@@ -319,6 +336,9 @@ def main():
 	plt.show()
 		
 	#need to do a 3sigma clipping comparison here
+
+	print "RMS"
+	print rms([s.z for s in sne], data, errors, params)
 
 	print 'HERE ARE THE 3SIGMA OUTLIERS'
 
