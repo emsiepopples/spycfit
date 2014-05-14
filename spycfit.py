@@ -58,7 +58,7 @@ class Supernova(object):
 
 		corr_mag = self.bmax + params['alpha'].value * self.x1 - params['beta'].value * self.colour - params['scriptm'].value
 		corr_mag_err = np.sqrt(self.bmax_err**2 +params['alpha'].value**2 * self.x1_err**2 + params['alpha'].stderr**2 * self.x1\
-		+ params['beta'].value**2 * self.colour_err**2 + params['beta'].stderr**2 * self.colour**2 + params['scriptm'].stderr**2)
+			+ params['beta'].value**2 * self.colour_err**2 + params['beta'].stderr**2 * self.colour**2 + params['scriptm'].stderr**2)
 
 		
 		return corr_mag, corr_mag_err
@@ -105,13 +105,10 @@ def cosmochisqu(params, snlist):
     
     model = 5.0 * np.log10(script_lumdist(omega_m, omega_l, redshift))
     
-    data = bmag + correction - scriptm
+    data = bmag + correction - scriptm	
     
     err = np.sqrt(bmag_err**2 + correction_err**2)
     
-    chisqu =  (np.sum((model - data)**2) / np.sum(int_disp**2 +err**2 _ redshift_err**2))/len(data)
-    print chisqu, np.sum((model - data))/np.sum(np.sqrt((int_disp**2 + err**2+redshift_err**2)))
-	
     return (model - data)/np.sqrt((int_disp**2 + err**2 + redshift_err**2))
 	
 
@@ -142,9 +139,9 @@ def script_lumdist(wm, wl, zed):
 
 		curve = 1.0
 
-		const = 299792458. * (1+zed)/np.sqrt(np.abs(curve))
+		const = 299792458 * (1+zed)/np.sqrt(np.abs(curve))
 		cosmobit = [np.sqrt(curve) * integrate.quad(integralbit, 0, zz, args=(wm, wl,))[0] for zz in zed]
-		return const * cosmobit
+		return const * cosmobit 
 
 	elif wm+wl > 1.:
 
@@ -153,14 +150,13 @@ def script_lumdist(wm, wl, zed):
 		const = 299792458. * (1+zed)/np.sqrt(np.abs(curve))
 		cosmobit = np.sin([np.sqrt(np.abs(curve)) * integrate.quad(integralbit, 0, zz, args=(wm,wl,))[0] for zz in zed])
 		return const * cosmobit
-
 	else:
 
 		#print 'Negative curvature'
 		curve = 1.0 - wm - wl
 		const = 299792458. * (1+zed)/np.sqrt(np.abs(curve))
 		cosmobit = np.sinh([np.sqrt(np.abs(curve)) * integrate.quad(integralbit, 0, zz, args=(wm,wl,))[0] for zz in zed])
-		return const * cosmobit
+		return const * cosmobit 
 
 def rms(snzed, vals, errs, params):  
 
@@ -180,8 +176,14 @@ def three_sigma_clip(snzed, vals, errs, params):
 
 	return diff
 
+def find_excluded(filename):
 
+	f = open(filename, 'r')
+	lines = f.readlines()
+	f.close()
+	comment_lines = [x.split()[0] for x in lines if x.startswith('#')]
 
+	return comment_lines[1:-1]
 
 
 def main():
@@ -304,7 +306,7 @@ def main():
 		print 'FLAT'
 
 		params.add('omega_m', vary = True, value = 0.3, min=0, max = 1.)
-		params.add('omega_l', vary = True, expr = '1.0 - omega_m')
+		params.add('omega_l', vary = True, expr = '1.0 - omega_m') 
 	
 
 	params.add('scriptm', vary = True, value = 10.0)
@@ -312,7 +314,12 @@ def main():
 	#pdb.set_trace()
 	#do the chisqu minimisation using the least squ fitter
 
-	result = minimize (cosmochisqu, params, args=(sne,), xtol = 0.001)
+	result = minimize (cosmochisqu, params, args=(sne,))
+	print 'SUCCESS: ',result.success
+	print 'OUPUT MESSAGE: ', result.message
+	print 'RED CHI SQU: ', result.redchi
+	print 'N POINTS: ', result.ndata
+
 	cosmochisqu(params, sne)
 	report_errors(params)
 
@@ -322,9 +329,9 @@ def main():
 	model = 5.0 * np.log10(script_lumdist(params['omega_m'].value, params['omega_l'].value, test_z))
 	data = np.array([s.corrected_mag(params)[0] for s in sne])
 	errors = np.array([s.corrected_mag(params)[1] for s in sne])
-	
+
 	cosmo_label = r'$(\Omega_{\Lambda},\Omega_M) = $' + '({0},{1})'.format(params['omega_l'].value, params['omega_m'].value)
-	data_label = 'Data (n = {0})'.format(int(len(data)))
+	data_label = 'Data (n = {0})'.format(int(result.ndata))
 
 	fig = plt.figure()
 	plt.plot(test_z, model, 'k-', label=cosmo_label)
@@ -339,14 +346,21 @@ def main():
 
 	print "RMS"
 	print rms([s.z for s in sne], data, errors, params)
+	print "M_B assumming H0=70"
+	print params['scriptm'] - 25 + 5.0 * np.log10(70.e3)
 
-	print 'HERE ARE THE 3SIGMA OUTLIERS'
+	print 'REMAINING 3SIGMA OUTLIERS'
 
 	residual_sigma = three_sigma_clip([s.z for s in sne], data, errors, params)
 
 	clip = np.where(residual_sigma >= 3.0)[0]
 
 	for cc in clip: print sne[cc].name, residual_sigma[cc]
+
+	print 'EXCLUDED OBJECTS'
+	print find_excluded(args['filename'])
+
+
 
 
 
