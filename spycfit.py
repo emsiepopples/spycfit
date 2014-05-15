@@ -199,6 +199,8 @@ def main():
 	parser.add_argument("-f", "--flat", action = "store_true", help='Force a flat universe model')
 	parser.add_argument("-z", "--highz", action="store_true", help='Add high-z data')
 	parser.add_argument("-e", "--expansion_rate", type=float, help='Value of the Hubble constant')
+	parser.add_argument("-c", '--cuts', type = str, default='', help='Apply quality cuts. No cuts is default')
+
 	
 	args = vars(parser.parse_args())
 	
@@ -230,8 +232,55 @@ def main():
 
 	# 	sne = [sne, highz]
 
-
+	#implement code to make cuts on sample if necessary
 	
+	if (args['cuts'] != ''):
+
+		keep = []
+		remove = []
+
+		if (args['style'] == 'salt2'):
+
+			f = open(args['cuts'], 'r')
+			lines = f.readlines()
+			f.close
+			cut_vals = [x.split() for x in lines if not x.startswith('#')]
+
+
+			#convert values to floats
+			for d in cut_vals:
+				d[1] = float(d[1])
+				d[2] = float(d[2])
+
+			for idx,s in enumerate(sne):
+
+				qual = []
+
+				for d in cut_vals:
+
+					if ((getattr(s, d[0]) >= d[1]) and (getattr(s, d[0]) <= d[2])): 
+						qual.append(True)
+					else:
+						qual.append(False)
+
+				#print s.name, qual, sum(qual), s.maxdate_err, s.x1_err, s.colour, s.x1
+
+				if sum(qual)==len(cut_vals): 
+					keep.append(idx)
+				else:
+					remove.append(idx)
+
+			#print keep
+		print 'REMOVING OBJECTS: '
+		for r in remove: print sne[r].name 
+
+		if (args['style'] == 'sifto'):
+			print 'SIFTO CUTS NOT IMPLEMENTED'
+			keep  = list(xrange(len(sne)))
+
+
+		sne = [sne[i] for i in keep]
+
 
 	#this whole section just organises everything from argparse for lmfit
 				
