@@ -15,7 +15,7 @@ import __future__
 from lmfit import minimize, Parameters, report_errors
 import pdb
 from scipy import integrate
-from IPython import embed
+import datetime
 
 class Supernova(object):
 	
@@ -200,6 +200,7 @@ def main():
 	parser.add_argument("-z", "--highz", action="store_true", help='Add high-z data')
 	parser.add_argument("-e", "--expansion_rate", type=float, help='Value of the Hubble constant')
 	parser.add_argument("-c", '--cuts', type = str, default='', help='Apply quality cuts. No cuts is default')
+	parser.add_argument("-w", '--writetofile', action='store_true', help='Write out plot to eps file')
 
 	
 	args = vars(parser.parse_args())
@@ -390,6 +391,8 @@ def main():
 	plt.ylabel('Distance Modulus (mags)')
 	plt.legend()
 	plt.show()
+
+	
 		
 	#need to do a 3sigma clipping comparison here
 
@@ -409,7 +412,10 @@ def main():
 	print 'EXCLUDED OBJECTS'
 	print find_excluded(args['filename'])
 
-
+	if args['writetofile']:
+		timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+		plt.savefig('spycfit_{0}.eps'.format(timestamp), format = 'eps')
+		print '\n\nPlot saved. You may want to rename the file spycfit_{0}.eps to something more useful'.format(timestamp)
 
 
 
