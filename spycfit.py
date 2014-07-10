@@ -8,6 +8,8 @@ information and examples etc."""
 
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
+from matplotlib.ticker import NullFormatter
 import sys
 import os
 import argparse
@@ -16,6 +18,7 @@ from lmfit import minimize, Parameters, report_errors
 import pdb
 from scipy import integrate
 import datetime
+import pylab
 
 class Supernova(object):
 	
@@ -29,6 +32,7 @@ class Supernova(object):
 		self.bmax = float(arr[5])
 		self.bmax_err = float(arr[6])
 		self.type = lcfitter
+		self.ebvmw = float(arr[13])
 		
 		if self.type == 'salt2':
 		
@@ -57,8 +61,10 @@ class Supernova(object):
 
 
 		corr_mag = self.bmax + params['alpha'].value * self.x1 - params['beta'].value * self.colour - params['scriptm'].value
-		corr_mag_err = np.sqrt(self.bmax_err**2 +params['alpha'].value**2 * self.x1_err**2 + params['alpha'].stderr**2 * self.x1\
+		corr_mag_err = np.sqrt(self.bmax_err**2 +params['alpha'].value**2 * self.x1_err**2 + params['alpha'].stderr**2 * self.x1**2\
 			+ params['beta'].value**2 * self.colour_err**2 + params['beta'].stderr**2 * self.colour**2 + params['scriptm'].stderr**2)
+		#corr_mag_err = np.sqrt(self.bmax_err**2 +params['alpha'].value**2 * self.x1_err**2 \
+			#+ params['beta'].value**2 * self.colour_err**2)
 
 		
 		return corr_mag, corr_mag_err
@@ -201,7 +207,7 @@ def main():
 	parser.add_argument("-e", "--expansion_rate", type=float, help='Value of the Hubble constant')
 	parser.add_argument("-c", '--cuts', type = str, default='', help='Apply quality cuts. No cuts is default')
 	parser.add_argument("-w", '--writetofile', action='store_true', help='Write out plot to eps file')
-
+	parser.add_argument("-v", '--verbose', action = 'store_true', help='Write out detailed values for debugging')
 	
 	args = vars(parser.parse_args())
 	
@@ -383,15 +389,26 @@ def main():
 	cosmo_label = r'$(\Omega_{\Lambda},\Omega_M) = $' + '({0},{1})'.format(params['omega_l'].value, params['omega_m'].value)
 	data_label = 'Data (n = {0})'.format(int(result.ndata))
 
+	gs = gridspec.GridSpec(2, 1, height_ratios=[4,1])
+	gs.update(hspace=0.1)
 	fig = plt.figure()
-	plt.plot(test_z, model, 'k-', label=cosmo_label)
-	plt.errorbar(np.array([s.z for s in sne]), data, yerr = errors, ecolor='b', fmt='o', mfc='b', label = data_label)
-	plt.ylim([33, 40])
-	plt.xlabel('Redshift')
-	plt.ylabel('Distance Modulus (mags)')
-	plt.legend()
-	plt.show()
+	ax1 = fig.add_subplot(gs[0,0])
+	ax1.plot(test_z, model, 'k-', label=cosmo_label)
+	ax1.errorbar(np.array([s.z for s in sne]), data, yerr = errors, ecolor='b', fmt='o', mfc='b', label = data_label)
+	ax1.set_ylim([33, 40])
+	ax1.xaxis.set_major_formatter(NullFormatter())
+	ax1.set_ylabel('Distance Modulus (mags)')
+	ax1.legend()
 
+	ax2 = fig.add_subplot(gs[1,0])
+	model_val = 5.0 * np.log10(script_lumdist(params['omega_m'].value, params['omega_l'].value, np.array([s.z for s in sne])))
+	ax2.errorbar(np.array([s.z for s in sne]), (data - model_val)/errors, yerr = errors, ecolor='b', fmt='o', mfc='b' )
+	ax2.set_ylabel('Residual (sigma)')
+	ax2.set_xlabel('Redshift')
+	ax2.set_ylim([-3, 3])
+	xlim = list(ax1.get_xlim())
+	ax2.set_xlim(xlim)
+	ax2.hlines(0, xlim[0], xlim[1], color='k')
 	
 		
 	#need to do a 3sigma clipping comparison here
@@ -418,6 +435,21 @@ def main():
 		print '\n\nPlot saved. You may want to rename the file spycfit_{0}.eps to something more useful'.format(timestamp)
 
 
+	if args['verbose']:
+
+		timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+		outlog = 'log_{0}.dat'.format(timestamp)
+		with open(outlog, 'w') as f:
+
+			for s in sne:
+
+				obs = s.corrected_mag(params)
+				expect = 5.0 * np.log10(script_lumdist(params['omega_m'].value, params['omega_l'].value, [s.z]))[0]
+				f.write('{0}\t{1}\t{2}\t{3}\t{4}\t{5}\n'.format(s.name, obs[0], obs[1],expect, obs[0]-expect, (obs[0]-expect)/obs[1] ))
+
+		print '\n\nLog saved. You may want to rename the file {0} to something more useful'.format(outlog)
+
+	plt.show()
 
 if __name__ == "__main__":
 	main()

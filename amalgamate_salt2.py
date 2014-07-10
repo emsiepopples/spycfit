@@ -46,7 +46,7 @@ def getdata22(filepath):
 			bmax = line.split()[1]	
 			bmax_err = line.split()[2]
 			
-	print [[z, z_err], [maxdate, maxdate_err], [bmax, bmax_err],[x0, x0_err], [x1, x1_err], [colour, colour_err]]
+	#print [[z, z_err], [maxdate, maxdate_err], [bmax, bmax_err],[x0, x0_err], [x1, x1_err], [colour, colour_err]]
 	return [[z, z_err], [maxdate, maxdate_err], [bmax, bmax_err],[x0, x0_err], [x1, x1_err], [colour, colour_err]]
 	
 
@@ -82,10 +82,18 @@ def getdata24(filepath):
 			bmax = line.split()[1]	
 			bmax_err = line.split()[2]
 			
-	print [[z, z_err], [maxdate, maxdate_err], [bmax, bmax_err],[x0, x0_err], [x1, x1_err], [colour, colour_err]]
+	#print [[z, z_err], [maxdate, maxdate_err], [bmax, bmax_err],[x0, x0_err], [x1, x1_err], [colour, colour_err]]
 	return [[z, z_err], [maxdate, maxdate_err], [bmax, bmax_err],[x0, x0_err], [x1, x1_err], [colour, colour_err]]
 		
-	
+def get_ebv(dirname):
+
+	lightfile = os.path.join(dirname, 'lightfile')
+	f = open(lightfile, 'r')
+
+	dat = f.readlines()
+	f.close()
+
+	return dat[-1].split()[1]
 		
 def main(argv=None):
 	
@@ -125,15 +133,17 @@ def main(argv=None):
 
 		locate = os.path.join(root, saltname)
 		print locate
-		
 		if os.path.isfile(locate):
 	
 			name = root.split('/')[-1]
+			print name
 			vals = []
+
+			ebv = get_ebv(root)
 
 			if args['salt_version'] == 2.2: vals = getdata22(locate) 
 			if args['salt_version'] == 2.4: vals = getdata24(locate)
-			g.write( "{0}\t{1}\t{2}\t{3}\t{4}\t{5}\t{6}\t{7}\t{8}\t{9}\t{10}\t{11}\t{12}\n".format(name, vals[0][0], vals[0][1], vals[1][0], vals[1][1], vals[2][0], vals[2][1], vals[3][0], vals[3][1], vals[4][0], vals[4][1], vals[5][0], vals[5][1]))
+			g.write( "{0}\t{1}\t{2}\t{3}\t{4}\t{5}\t{6}\t{7}\t{8}\t{9}\t{10}\t{11}\t{12}\t{13}\n".format(name, vals[0][0], vals[0][1], vals[1][0], vals[1][1], vals[2][0], vals[2][1], vals[3][0], vals[3][1], vals[4][0], vals[4][1], vals[5][0], vals[5][1], ebv))
 	
 			
 	now = dt.now()

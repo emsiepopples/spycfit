@@ -1,5 +1,6 @@
 #File detailing quality cuts for SALT2
-maxdate_err	0.		0.5
-x1_err		0.		0.5
+maxdate_err	0.		2.
+x1_err		0.		1.
 colour		-0.3	0.3
 x1		-3.		3.
+ebvmw	0	0.15
