@@ -27,6 +27,8 @@ Once finished the code will allow you to
 
 15/05/14 - this is fully-working for SALT2.4 data with LMFIT as the minimiser for the $$$\chi^2$$$ of the fit.  Full options are described below
 
+10/07/14 - upgraded the plots to show residuals underneath; input file now also needs $$$E(B-V)_{mw}$$$
+
 ## Maths
 
 The code is designed to minimise the formula
@@ -54,6 +56,7 @@ The input file to spycfit.py should be from __1__ LC fitter only which is set by
 * X0 and error as x0 and x0_err
 * X1 and error as x1 and x1_err
 * Colour and error named as colour and colour_err (note the u in colour!)
+* $$$E(B-V)_{MW}$$$
 
 **SiFTO**
 
@@ -63,6 +66,7 @@ The input file to spycfit.py should be from __1__ LC fitter only which is set by
 * B-band maximum observed magnitude
 * Stretch and error as stretch and stretch_err
 * Colour and error named as colour and colour_err (note the u in colour!)
+* * $$$E(B-V)_{MW}$$$
 
 **SNOOPY**
 
@@ -106,15 +110,17 @@ optional arguments:
   
   -w, --writetofile     Write out plot to eps file
   
+  -v, --verbose			Makes a log file with observed and model distance modulii
+  
 Syntax examples:
 
 run spycfit.py salt24_050514.dat salt2  -f -m 0.3 -l 0.7 -s 0.14 -c betoule_salt2.dat -w
 
 This is the best way to run the code.  It uses SALT24 data in a fixed, flat cosmology with the instrinsic dispersion also fixed.  The alpha and beta parameters are free.  Cuts from the Bertoule paper are used.  The figure is saved to eps.
 
-run spycfit.py salt24_050514.dat salt2  -f -m 0.25 -l 0.75 -s 0.14 -a 0.1
+run spycfit.py salt24_050514.dat salt2  -f -m 0.25 -l 0.75 -s 0.14 -a 0.1 -v
 
-A fixed flat cosmology and the alpha parameter fixed.
+A fixed flat cosmology and the alpha parameter fixed.  The log file is also created.
 
 ## Required Packages
 
